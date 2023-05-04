@@ -1,35 +1,42 @@
 pipeline {
-   environment {
-        DOCKERHUB_CREDENTIALS = credentials('dockid')
-        TIMESTAMP = new Date().format("yyyyMMdd_HHmmss")
+    environment {
+    	DOCKERHUB_CREDENTIALS = credentials('dockid')
+	TIMESTAMP = new Date().format("yyyyMMdd_HHmmss")
     }
-   agent any
+    agent any
+    
+    triggers{
+        bitbucketPush()
+    }
 
-   stages {
-      stage('Build Image') {
-         steps {
-            script{
-               sh 'rm -rf *.war'
-               sh 'jar -cvf Survey.war -C src/main/webapp/ .'
-               //sh 'echo ${BUILD_TIMESTAMP}'
-               sh "docker build -t ramiyappan/studentsurvey:${env.TIMESTAMP} ."
+    environment {
+        REMOTE_ADDRESS = "REPLACE_WITH_REMOTE_ADDRESS"
+    }
+
+    stages {
+        stage ('Test & Build Artifact') {
+            agent {
+                docker {
+                    image 'openjdk:17'
+                    args '-v "$PWD":/Homework'
+                    reuseNode true
+                }
+            }
+            steps {
+                sh './gradlew clean build'
+            }
+        }
+        stage ('Build & Push docker image') {
+            steps {
+               sh "docker build -t ramiyappan/imaagespring:${env.TIMESTAMP} ."
                sh 'echo $DOCKERHUB_CREDENTIALS_PSW | docker login -u $DOCKERHUB_CREDENTIALS_USR --password-stdin'
+	       sh "docker push ramiyappan/imaagespring:${env.TIMESTAMP}"
+                }
             }
-         }
-      }
-
-      stage('Push Image') {
+       stage('Update Deployment') {
          steps {
             script{
-                  sh "docker push ramiyappan/studentsurvey:${env.TIMESTAMP}"
-            }
-         }
-      }
-
-      stage('Update Deployment') {
-         steps {
-            script{
-               sh "kubectl set image deployment/newdeployment container-0=ramiyappan/studentsurvey:${env.TIMESTAMP}"
+               sh "kubectl set image deployment/newdeployment newcontainercontainer=ramiyappan/imaagespring:${env.TIMESTAMP}"
             }
          }
       }
@@ -42,10 +49,4 @@ pipeline {
          }
       }
    }
-      
-      post {
-	  always {
-		sh 'docker logout'
-	  }
-      }    
 }
