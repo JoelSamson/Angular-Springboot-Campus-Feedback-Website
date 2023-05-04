@@ -5,14 +5,6 @@ pipeline {
     }
     agent any
     
-    triggers{
-        bitbucketPush()
-    }
-
-    environment {
-        REMOTE_ADDRESS = "REPLACE_WITH_REMOTE_ADDRESS"
-    }
-
     stages {
         stage ('Test & Build Artifact') {
             agent {
